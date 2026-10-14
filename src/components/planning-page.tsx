@@ -495,7 +495,7 @@ export function PlanningPage() {
   const repoId = current?.id ?? null;
   const [passes, setPasses] = useState<PlanningPass[]>([]);
   const [refinementPasses, setRefinementPasses] = useState<RefinementPass[]>([]);
-  const [refineError, setRefineError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -530,7 +530,7 @@ export function PlanningPage() {
     setLoadedRepoId(repoId);
     setPasses([]);
     setRefinementPasses([]);
-    setRefineError(null);
+    setActionError(null);
     setSelected(new Set());
     setDiscussing(null);
     setSteeringOpen(false);
@@ -618,9 +618,13 @@ export function PlanningPage() {
   const handleStart = () => {
     if (!repoId || !agentsAssigned) return;
     setBusy(true);
+    setActionError(null);
     startPlanningPass(repoId)
       .then(refresh)
-      .catch(() => {})
+      // Pre-flight failures (missing personas, a pass already running) must be visible.
+      .catch((err) =>
+        setActionError(err instanceof Error ? err.message : 'Could not start the planning pass')
+      )
       .finally(() => setBusy(false));
   };
 
@@ -628,18 +632,24 @@ export function PlanningPage() {
   const handleAdHocStart = () => {
     if (!repoId || !agentsAssigned) return;
     setBusy(true);
+    setActionError(null);
     startPlanningPass(repoId, { adHoc: true })
       .then(refresh)
-      .catch(() => {})
+      .catch((err) =>
+        setActionError(err instanceof Error ? err.message : 'Could not start the planning pass')
+      )
       .finally(() => setBusy(false));
   };
 
   const handleCancel = () => {
     if (!repoId) return;
     setCancelling(true);
+    setActionError(null);
     cancelPlanningPass(repoId)
       .then(refresh)
-      .catch(() => {})
+      .catch((err) =>
+        setActionError(err instanceof Error ? err.message : 'Could not cancel the planning pass')
+      )
       .finally(() => setCancelling(false));
   };
 
@@ -647,11 +657,11 @@ export function PlanningPage() {
   const handleRefine = () => {
     if (!repoId) return;
     setBusy(true);
-    setRefineError(null);
+    setActionError(null);
     startRefinementPass(repoId)
       .then(refresh)
       .catch((err) =>
-        setRefineError(err instanceof Error ? err.message : 'Could not start the refinement pass')
+        setActionError(err instanceof Error ? err.message : 'Could not start the refinement pass')
       )
       .finally(() => setBusy(false));
   };
@@ -659,9 +669,12 @@ export function PlanningPage() {
   const handleRefineCancel = () => {
     if (!repoId) return;
     setCancelling(true);
+    setActionError(null);
     cancelRefinementPass(repoId)
       .then(refresh)
-      .catch(() => {})
+      .catch((err) =>
+        setActionError(err instanceof Error ? err.message : 'Could not cancel the refinement pass')
+      )
       .finally(() => setCancelling(false));
   };
 
@@ -669,12 +682,12 @@ export function PlanningPage() {
   const handleResolveVerdict = (passId: string, verdictId: string, action: 'apply' | 'reject') => {
     if (!repoId) return;
     setBusy(true);
-    setRefineError(null);
+    setActionError(null);
     resolveRefinementVerdict(repoId, passId, verdictId, action)
       .then(refresh)
       .catch((err) =>
         // Applying mutates GitHub — a failure (auth, already closed) must not look like success.
-        setRefineError(err instanceof Error ? err.message : 'Could not apply the verdict')
+        setActionError(err instanceof Error ? err.message : 'Could not apply the verdict')
       )
       .finally(() => setBusy(false));
   };
@@ -814,9 +827,9 @@ export function PlanningPage() {
         </div>
       )}
 
-      {refineError && (
+      {actionError && (
         <div className="rounded-lg border border-warning/40 bg-warning-muted/40 px-4 py-3 text-[13px] leading-relaxed">
-          {refineError}
+          {actionError}
         </div>
       )}
 
